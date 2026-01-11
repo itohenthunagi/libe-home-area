@@ -7,10 +7,21 @@
     <title>対応エリア確認 | リベ大工務店</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts軽量化: 4ウェイト→2ウェイトに削減 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- リソースプリロード -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" as="script">
 
     <!-- PapaParse CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- CSVフェッチ即時開始（DOMContentLoaded前に開始） -->
+    <script>
+      window.__csvFetchPromise = fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vTakKTc-ekIJM4mN34A0MP4WjpiaXgcie8bQYn5fMswI85X91fNSUDGOT59nGMnHQomYL4BVsxAtDf-/pub?gid=1502020184&single=true&output=csv')
+        .then(res => res.ok ? res.text() : Promise.reject('CSV取得失敗'))
+        .catch(err => { window.__csvFetchError = err; return null; });
+    </script>
 
     <style>
       :root {
@@ -103,7 +114,7 @@
         padding: 14px 12px;
         font-size: 24px !important;
         font-family: var(--font-main);
-        font-weight: 500;
+        font-weight: 400;
         color: var(--color-text);
         background: var(--color-base);
         border: 2px solid var(--color-border);
@@ -200,7 +211,7 @@
         padding: 14px;
         border-radius: 10px;
         font-size: 22px !important;
-        font-weight: 600;
+        font-weight: 700;
         margin-top: 12px;
         display: none;
         line-height: 1.4;
@@ -309,7 +320,7 @@
       .result-status-label {
         font-size: 18px !important;
         color: var(--color-text-light);
-        font-weight: 600;
+        font-weight: 700;
         flex-shrink: 0;
       }
 
@@ -356,7 +367,7 @@
       .footer-link {
         color: var(--color-accent);
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 700;
       }
 
       /* PC向け（768px以上） */
@@ -437,7 +448,7 @@
         margin-top: 20px;
         font-size: 18px;
         color: var(--color-text);
-        font-weight: 600;
+        font-weight: 700;
       }
 
       .loading-subtext {
@@ -473,7 +484,7 @@
         padding: 12px 24px;
         font-size: 18px;
         font-family: var(--font-main);
-        font-weight: 600;
+        font-weight: 700;
         color: #fff;
         background: var(--color-accent);
         border: none;
@@ -693,55 +704,153 @@
         }
       }
 
+      // ==================== キャッシュ設定 ====================
+      const CACHE_KEY = 'libe_koumu_csv_cache';
+      const CACHE_TIMESTAMP_KEY = 'libe_koumu_csv_timestamp';
+      const CACHE_EXPIRE_MS = 5 * 60 * 1000; // 5分でキャッシュ更新を試みる
+
       // ==================== CSV読み込みと解析 ====================
+
+      // CSVテキストを解析してアプリデータを構築
+      function parseAndBuildData(csvText) {
+        const parsed = Papa.parse(csvText, {
+          skipEmptyLines: false
+        });
+
+        appData.table = parsed.data;
+
+        // ヘッダ読み取り（2行目・3行目）
+        const providerRow = appData.table[CONFIG.HEADER_PROVIDER_ROW - 1];
+        const categoryRow = appData.table[CONFIG.HEADER_CATEGORY_ROW - 1];
+
+        // D列以降を取得（index 3以降）
+        appData.providers = providerRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
+        appData.categories = categoryRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
+
+        // インデックス構築
+        buildIndex();
+      }
+
+      // キャッシュからデータを読み込む
+      function loadFromCache() {
+        try {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            return cached;
+          }
+        } catch (e) {
+          console.warn('キャッシュ読み込みエラー:', e);
+        }
+        return null;
+      }
+
+      // キャッシュにデータを保存
+      function saveToCache(csvText) {
+        try {
+          localStorage.setItem(CACHE_KEY, csvText);
+          localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+        } catch (e) {
+          console.warn('キャッシュ保存エラー:', e);
+        }
+      }
+
+      // キャッシュが古いかチェック
+      function isCacheStale() {
+        try {
+          const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+          if (!timestamp) return true;
+          return (Date.now() - parseInt(timestamp, 10)) > CACHE_EXPIRE_MS;
+        } catch (e) {
+          return true;
+        }
+      }
 
       async function loadAndParseCSV() {
         try {
           setBusy(true);
           setMsg("", "");
 
-          // 20秒後にタイムアウト警告を表示
-          loadingTimeout = setTimeout(() => {
-            showLoadingError();
-          }, 20000);
+          // 1. まずキャッシュから読み込みを試みる（即座に表示）
+          const cachedCSV = loadFromCache();
+          let usedCache = false;
 
-          // fetchタイムアウト設定（60秒）
-          const controller = new AbortController();
-          const fetchTimeout = setTimeout(() => controller.abort(), 60000);
+          if (cachedCSV) {
+            try {
+              parseAndBuildData(cachedCSV);
+              initializeUI();
+              hideLoading();
+              setBusy(false);
+              usedCache = true;
+              console.log('キャッシュからデータを読み込みました');
+            } catch (e) {
+              console.warn('キャッシュデータの解析に失敗:', e);
+            }
+          }
 
-          const response = await fetch(CONFIG.CSV_URL, {
-            signal: controller.signal
-          });
-          clearTimeout(fetchTimeout);
+          // 2. バックグラウンドで最新データを取得（または初回取得）
+          // head内で開始したfetchを使用
+          let csvText = null;
 
-          if (!response.ok) throw new Error('CSV取得失敗');
-          const csvText = await response.text();
+          if (window.__csvFetchPromise) {
+            // 既に開始済みのfetchを待つ
+            csvText = await window.__csvFetchPromise;
+            if (window.__csvFetchError) {
+              throw new Error(window.__csvFetchError);
+            }
+          }
 
-          const parsed = Papa.parse(csvText, {
-            skipEmptyLines: false
-          });
+          if (!csvText) {
+            // フォールバック：再度fetchを実行
+            loadingTimeout = setTimeout(() => {
+              if (!usedCache) showLoadingError();
+            }, 20000);
 
-          appData.table = parsed.data;
+            const controller = new AbortController();
+            const fetchTimeout = setTimeout(() => controller.abort(), 60000);
 
-          // ヘッダ読み取り（2行目・3行目）
-          const providerRow = appData.table[CONFIG.HEADER_PROVIDER_ROW - 1];
-          const categoryRow = appData.table[CONFIG.HEADER_CATEGORY_ROW - 1];
+            const response = await fetch(CONFIG.CSV_URL, {
+              signal: controller.signal
+            });
+            clearTimeout(fetchTimeout);
 
-          // D列以降を取得（index 3以降）
-          appData.providers = providerRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
-          appData.categories = categoryRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
+            if (!response.ok) throw new Error('CSV取得失敗');
+            csvText = await response.text();
+          }
 
-          // インデックス構築
-          buildIndex();
+          // 3. キャッシュを更新
+          saveToCache(csvText);
 
-          // UI初期化
-          initializeUI();
+          // 4. キャッシュを使っていない場合、またはデータが変わった場合はUIを更新
+          if (!usedCache) {
+            parseAndBuildData(csvText);
+            initializeUI();
+            hideLoading();
+            setBusy(false);
+            console.log('ネットワークからデータを読み込みました');
+          } else if (cachedCSV !== csvText) {
+            // データが更新されていた場合、UIを再構築
+            parseAndBuildData(csvText);
+            // 都道府県リストをクリアして再構築
+            elPref.innerHTML = '<option value="">選択</option>';
+            buildPrefectureList();
+            console.log('バックグラウンドでデータを更新しました');
+          }
 
-          setBusy(false);
-          hideLoading();
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            loadingTimeout = null;
+          }
 
         } catch (error) {
           console.error(error);
+
+          // キャッシュから読み込み済みなら、エラーは警告程度に
+          const cachedCSV = loadFromCache();
+          if (cachedCSV) {
+            console.warn('ネットワークエラーですが、キャッシュデータで動作中');
+            return;
+          }
+
           hideLoading();
 
           let errorMessage = 'データの読み込みに失敗しました';
