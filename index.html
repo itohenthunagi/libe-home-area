@@ -500,8 +500,8 @@
   </head>
 
   <body>
-    <!-- ローディングオーバーレイ -->
-    <div id="loadingOverlay" class="loading-overlay">
+    <!-- ローディングオーバーレイ（確認ボタン押下時のみ表示） -->
+    <div id="loadingOverlay" class="loading-overlay hidden" style="display: none;">
       <div id="loadingContent">
         <div class="loading-spinner"></div>
         <div class="loading-text">データを読み込んでいます</div>
@@ -527,6 +527,53 @@
             <label class="form-label" for="pref">都道府県</label>
             <select id="pref">
               <option value="">選択</option>
+              <option value="北海道">北海道</option>
+              <option value="青森県">青森県</option>
+              <option value="岩手県">岩手県</option>
+              <option value="宮城県">宮城県</option>
+              <option value="秋田県">秋田県</option>
+              <option value="山形県">山形県</option>
+              <option value="福島県">福島県</option>
+              <option value="茨城県">茨城県</option>
+              <option value="栃木県">栃木県</option>
+              <option value="群馬県">群馬県</option>
+              <option value="埼玉県">埼玉県</option>
+              <option value="千葉県">千葉県</option>
+              <option value="東京都">東京都</option>
+              <option value="神奈川県">神奈川県</option>
+              <option value="新潟県">新潟県</option>
+              <option value="富山県">富山県</option>
+              <option value="石川県">石川県</option>
+              <option value="福井県">福井県</option>
+              <option value="山梨県">山梨県</option>
+              <option value="長野県">長野県</option>
+              <option value="岐阜県">岐阜県</option>
+              <option value="静岡県">静岡県</option>
+              <option value="愛知県">愛知県</option>
+              <option value="三重県">三重県</option>
+              <option value="滋賀県">滋賀県</option>
+              <option value="京都府">京都府</option>
+              <option value="大阪府">大阪府</option>
+              <option value="兵庫県">兵庫県</option>
+              <option value="奈良県">奈良県</option>
+              <option value="和歌山県">和歌山県</option>
+              <option value="鳥取県">鳥取県</option>
+              <option value="島根県">島根県</option>
+              <option value="岡山県">岡山県</option>
+              <option value="広島県">広島県</option>
+              <option value="山口県">山口県</option>
+              <option value="徳島県">徳島県</option>
+              <option value="香川県">香川県</option>
+              <option value="愛媛県">愛媛県</option>
+              <option value="高知県">高知県</option>
+              <option value="福岡県">福岡県</option>
+              <option value="佐賀県">佐賀県</option>
+              <option value="長崎県">長崎県</option>
+              <option value="熊本県">熊本県</option>
+              <option value="大分県">大分県</option>
+              <option value="宮崎県">宮崎県</option>
+              <option value="鹿児島県">鹿児島県</option>
+              <option value="沖縄県">沖縄県</option>
             </select>
           </div>
           <div class="form-col">
@@ -584,8 +631,15 @@
         table: [],              // 2次元配列（CSVデータ全体）
         providers: [],          // プロバイダー種別（2行目 D列以降）
         categories: [],         // カテゴリ（3行目 D列以降）
-        rowsByPref: new Map()   // 都道府県別インデックス
+        rowsByPref: new Map(),  // 都道府県別インデックス
+        isReady: false          // データ準備完了フラグ
       };
+
+      // データ準備完了を待つためのPromise
+      let dataReadyResolve = null;
+      const dataReadyPromise = new Promise(resolve => {
+        dataReadyResolve = resolve;
+      });
 
       // ==================== DOM要素の取得 ====================
       const elPref = document.getElementById("pref");
@@ -669,6 +723,21 @@
       }
 
       // ローディング表示制御
+      function showLoading() {
+        if (elLoadingOverlay) {
+          elLoadingOverlay.style.display = "flex";
+          elLoadingOverlay.classList.remove("hidden");
+          // ローディングコンテンツをリセット
+          if (elLoadingContent) {
+            elLoadingContent.innerHTML = `
+              <div class="loading-spinner"></div>
+              <div class="loading-text">データを読み込んでいます</div>
+              <div class="loading-subtext">しばらくお待ちください...</div>
+            `;
+          }
+        }
+      }
+
       function hideLoading() {
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
@@ -767,28 +836,21 @@
 
       async function loadAndParseCSV() {
         try {
-          setBusy(true);
-          setMsg("", "");
-
-          // 1. まずキャッシュから読み込みを試みる（即座に表示）
+          // 1. まずキャッシュから読み込みを試みる（即座にデータ準備）
           const cachedCSV = loadFromCache();
-          let usedCache = false;
 
           if (cachedCSV) {
             try {
               parseAndBuildData(cachedCSV);
-              initializeUI();
-              hideLoading();
-              setBusy(false);
-              usedCache = true;
+              appData.isReady = true;
+              dataReadyResolve();
               console.log('キャッシュからデータを読み込みました');
             } catch (e) {
               console.warn('キャッシュデータの解析に失敗:', e);
             }
           }
 
-          // 2. バックグラウンドで最新データを取得（または初回取得）
-          // head内で開始したfetchを使用
+          // 2. バックグラウンドで最新データを取得（UIをブロックしない）
           let csvText = null;
 
           if (window.__csvFetchPromise) {
@@ -801,10 +863,6 @@
 
           if (!csvText) {
             // フォールバック：再度fetchを実行
-            loadingTimeout = setTimeout(() => {
-              if (!usedCache) showLoadingError();
-            }, 20000);
-
             const controller = new AbortController();
             const fetchTimeout = setTimeout(() => controller.abort(), 60000);
 
@@ -820,48 +878,31 @@
           // 3. キャッシュを更新
           saveToCache(csvText);
 
-          // 4. キャッシュを使っていない場合、またはデータが変わった場合はUIを更新
-          if (!usedCache) {
+          // 4. データを構築
+          if (!appData.isReady) {
+            // 初回：データを構築して準備完了
             parseAndBuildData(csvText);
-            initializeUI();
-            hideLoading();
-            setBusy(false);
+            appData.isReady = true;
+            dataReadyResolve();
             console.log('ネットワークからデータを読み込みました');
           } else if (cachedCSV !== csvText) {
-            // データが更新されていた場合、UIを再構築
+            // キャッシュと異なる場合：データを更新
             parseAndBuildData(csvText);
-            // 都道府県リストをクリアして再構築
-            elPref.innerHTML = '<option value="">選択</option>';
-            buildPrefectureList();
             console.log('バックグラウンドでデータを更新しました');
-          }
-
-          if (loadingTimeout) {
-            clearTimeout(loadingTimeout);
-            loadingTimeout = null;
           }
 
         } catch (error) {
           console.error(error);
 
           // キャッシュから読み込み済みなら、エラーは警告程度に
-          const cachedCSV = loadFromCache();
-          if (cachedCSV) {
+          if (appData.isReady) {
             console.warn('ネットワークエラーですが、キャッシュデータで動作中');
             return;
           }
 
-          hideLoading();
-
-          let errorMessage = 'データの読み込みに失敗しました';
-          if (error.name === 'AbortError') {
-            errorMessage = '読み込みに時間がかかりすぎています。ページを再読み込みしてください。';
-          } else if (!navigator.onLine) {
-            errorMessage = 'インターネット接続を確認してください';
-          }
-
-          setMsg(errorMessage, 'error');
-          setBusy(false);
+          // データがない場合はエラーを記録（確認ボタン押下時にエラー表示）
+          appData.loadError = error;
+          dataReadyResolve(); // エラーでもPromiseを解決して待機を終了
         }
       }
 
@@ -893,24 +934,9 @@
       // ==================== UI初期化 ====================
 
       function initializeUI() {
-        // 都道府県プルダウン生成
-        buildPrefectureList();
-
         // お問い合わせリンク設定
         elContactLink.href = CONFIG.CONTACT_URL;
         elContactLink.target = "_blank";
-      }
-
-      // 都道府県リスト生成
-      function buildPrefectureList() {
-        const prefs = Array.from(appData.rowsByPref.keys());
-
-        prefs.forEach(pref => {
-          const option = document.createElement('option');
-          option.value = pref;
-          option.textContent = pref;
-          elPref.appendChild(option);
-        });
       }
 
       // ==================== サジェスト ====================
@@ -1131,20 +1157,60 @@
       }
 
       // 送信処理
-      function onSubmit() {
+      async function onSubmit() {
         const pref = elPref.value;
         const muni = elMuni.value.trim();
 
         setMsg("", "");
         clearResult();
 
-        const validation = validateInput(pref, muni);
-        if (!validation.ok) {
-          setMsg(validation.message, "error");
+        // 基本バリデーション（都道府県・市区町村が入力されているか）
+        if (!pref) {
+          setMsg('都道府県を選択してください', "error");
+          return;
+        }
+        if (!muni) {
+          setMsg('市区町村を入力してください', "error");
           return;
         }
 
         setBusy(true);
+
+        // データがまだ準備できていない場合はローディングを表示して待つ
+        if (!appData.isReady) {
+          showLoading();
+
+          // タイムアウト警告を設定
+          loadingTimeout = setTimeout(() => {
+            showLoadingError();
+          }, 20000);
+
+          await dataReadyPromise;
+          hideLoading();
+
+          // エラーがあった場合
+          if (appData.loadError) {
+            let errorMessage = 'データの読み込みに失敗しました';
+            if (appData.loadError.name === 'AbortError') {
+              errorMessage = '読み込みに時間がかかりすぎています。ページを再読み込みしてください。';
+            } else if (!navigator.onLine) {
+              errorMessage = 'インターネット接続を確認してください';
+            }
+            setMsg(errorMessage, 'error');
+            setBusy(false);
+            return;
+          }
+        }
+
+        // 市区町村の存在チェック
+        const rows = appData.rowsByPref.get(pref) || [];
+        const exists = rows.some(row => row.muni === muni);
+        if (!exists) {
+          setMsg('市区町村は候補（プルダウン）から選択してください', "error");
+          setBusy(false);
+          return;
+        }
+
         showSearching(pref, muni);
 
         setTimeout(() => {
@@ -1157,10 +1223,16 @@
       // ==================== 初期化 ====================
 
       document.addEventListener("DOMContentLoaded", () => {
+        // お問い合わせリンク設定
+        elContactLink.href = CONFIG.CONTACT_URL;
+        elContactLink.target = "_blank";
+
+        // イベントリスナー設定
         elPref.addEventListener("change", onPrefChange);
         elMuni.addEventListener("input", onMuniInput);
         elBtn.addEventListener("click", onSubmit);
 
+        // CSVデータをバックグラウンドで取得（UIをブロックしない）
         loadAndParseCSV();
       });
     </script>
