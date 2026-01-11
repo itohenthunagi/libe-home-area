@@ -397,10 +397,107 @@
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: translateY(0); }
       }
+
+      /* ローディング表示 */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(250, 245, 240, 0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s;
+      }
+
+      .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid var(--color-border);
+        border-top: 4px solid var(--color-accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        margin-top: 20px;
+        font-size: 18px;
+        color: var(--color-text);
+        font-weight: 600;
+      }
+
+      .loading-subtext {
+        margin-top: 8px;
+        font-size: 15px;
+        color: var(--color-text-light);
+      }
+
+      .loading-error {
+        max-width: 400px;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .loading-error-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--color-error);
+        margin-bottom: 12px;
+      }
+
+      .loading-error-message {
+        font-size: 16px;
+        color: var(--color-text);
+        margin-bottom: 20px;
+        line-height: 1.6;
+      }
+
+      .retry-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        font-size: 18px;
+        font-family: var(--font-main);
+        font-weight: 600;
+        color: #fff;
+        background: var(--color-accent);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .retry-btn:hover {
+        background: var(--color-accent-hover);
+      }
     </style>
   </head>
 
   <body>
+    <!-- ローディングオーバーレイ -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div id="loadingContent">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">データを読み込んでいます</div>
+        <div class="loading-subtext">しばらくお待ちください...</div>
+      </div>
+    </div>
+
     <div class="container">
       <!-- ヘッダー -->
       <header class="header">
@@ -488,8 +585,11 @@
       const elResult = document.getElementById("result");
       const elContactLink = document.getElementById("contactLink");
       const elMuniHint = document.getElementById("muniHint");
+      const elLoadingOverlay = document.getElementById("loadingOverlay");
+      const elLoadingContent = document.getElementById("loadingContent");
 
       let suggestTimer = null;
+      let loadingTimeout = null;
 
       // ==================== カテゴリー名の変換マップ ====================
       const categoryNameMap = {
@@ -557,6 +657,42 @@
         return value;
       }
 
+      // ローディング表示制御
+      function hideLoading() {
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
+        if (elLoadingOverlay) {
+          elLoadingOverlay.classList.add("hidden");
+          setTimeout(() => {
+            elLoadingOverlay.style.display = "none";
+          }, 300);
+        }
+      }
+
+      function showLoadingError() {
+        if (elLoadingContent) {
+          elLoadingContent.innerHTML = `
+            <div class="loading-error">
+              <div class="loading-error-title">読み込みに時間がかかっています</div>
+              <div class="loading-error-message">
+                データの取得に時間がかかっています。<br>
+                ネットワーク環境をご確認いただくか、<br>
+                下のボタンで再読み込みをお試しください。
+              </div>
+              <button class="retry-btn" onclick="location.reload()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                再読み込み
+              </button>
+            </div>
+          `;
+        }
+      }
+
       // ==================== CSV読み込みと解析 ====================
 
       async function loadAndParseCSV() {
@@ -564,7 +700,20 @@
           setBusy(true);
           setMsg("", "");
 
-          const response = await fetch(CONFIG.CSV_URL);
+          // 10秒後にタイムアウト警告を表示
+          loadingTimeout = setTimeout(() => {
+            showLoadingError();
+          }, 10000);
+
+          // fetchタイムアウト設定（30秒）
+          const controller = new AbortController();
+          const fetchTimeout = setTimeout(() => controller.abort(), 30000);
+
+          const response = await fetch(CONFIG.CSV_URL, {
+            signal: controller.signal
+          });
+          clearTimeout(fetchTimeout);
+
           if (!response.ok) throw new Error('CSV取得失敗');
           const csvText = await response.text();
 
@@ -589,10 +738,20 @@
           initializeUI();
 
           setBusy(false);
+          hideLoading();
 
         } catch (error) {
           console.error(error);
-          setMsg('データの読み込みに失敗しました（CSV公開URLを確認してください）', 'error');
+          hideLoading();
+
+          let errorMessage = 'データの読み込みに失敗しました';
+          if (error.name === 'AbortError') {
+            errorMessage = '読み込みがタイムアウトしました。ページを再読み込みしてください。';
+          } else if (!navigator.onLine) {
+            errorMessage = 'インターネット接続を確認してください';
+          }
+
+          setMsg(errorMessage, 'error');
           setBusy(false);
         }
       }
