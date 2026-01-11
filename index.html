@@ -168,6 +168,24 @@
         overflow: hidden;
       }
 
+      .form-hint.loading-hint {
+        color: var(--color-accent);
+        font-weight: 700;
+      }
+
+      .form-hint.loading-hint::before {
+        content: '';
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--color-border);
+        border-top: 2px solid var(--color-accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+
       /* ボタン（フル幅） */
       .btn {
         width: 100%;
@@ -582,11 +600,11 @@
               id="muni"
               type="text"
               list="muniList"
-              placeholder="候補から選択"
+              placeholder="データ読み込み中..."
               autocomplete="off"
             />
             <datalist id="muniList"></datalist>
-            <p id="muniHint" class="form-hint">※ ひらがなを数文字入力すると候補が絞り込めます</p>
+            <p id="muniHint" class="form-hint loading-hint">※ エリアデータを読み込んでいます...</p>
           </div>
         </div>
 
@@ -844,6 +862,7 @@
               parseAndBuildData(cachedCSV);
               appData.isReady = true;
               dataReadyResolve();
+              onDataReady();
               console.log('キャッシュからデータを読み込みました');
             } catch (e) {
               console.warn('キャッシュデータの解析に失敗:', e);
@@ -884,6 +903,7 @@
             parseAndBuildData(csvText);
             appData.isReady = true;
             dataReadyResolve();
+            onDataReady();
             console.log('ネットワークからデータを読み込みました');
           } else if (cachedCSV !== csvText) {
             // キャッシュと異なる場合：データを更新
@@ -937,6 +957,18 @@
         // お問い合わせリンク設定
         elContactLink.href = CONFIG.CONTACT_URL;
         elContactLink.target = "_blank";
+      }
+
+      // データ読み込み完了時のUI更新
+      function onDataReady() {
+        // placeholderを更新
+        elMuni.placeholder = "候補から選択";
+
+        // ヒントを更新（ローディング表示を解除）
+        if (elMuniHint) {
+          elMuniHint.classList.remove("loading-hint");
+          elMuniHint.textContent = "※ ひらがなを数文字入力すると候補が絞り込めます";
+        }
       }
 
       // ==================== サジェスト ====================
