@@ -76,15 +76,16 @@
         margin-bottom: 14px;
       }
 
-      /* 2カラムレイアウト */
+      /* 2カラムレイアウト（スマホでは縦並び） */
       .form-row {
         display: flex;
-        gap: 8px;
+        flex-direction: column;
+        gap: 16px;
         margin-bottom: 12px;
       }
 
       .form-col {
-        flex: 1;
+        width: 100%;
         min-width: 0;
       }
 
@@ -143,9 +144,17 @@
       .form-hint {
         font-size: 15px;
         color: var(--color-text-light);
-        margin-top: 0;
-        margin-bottom: 6px;
+        margin-top: 6px;
+        margin-bottom: 0;
         line-height: 1.6;
+        transition: opacity 0.2s, max-height 0.2s;
+      }
+
+      .form-hint.hidden {
+        opacity: 0;
+        max-height: 0;
+        margin: 0;
+        overflow: hidden;
       }
 
       /* ボタン（フル幅） */
@@ -363,7 +372,13 @@
         }
 
         .form-row {
+          flex-direction: row;
           gap: 16px;
+        }
+
+        .form-col {
+          flex: 1;
+          width: auto;
         }
 
         .btn {
@@ -408,7 +423,6 @@
           </div>
           <div class="form-col">
             <label class="form-label" for="muni">市区町村</label>
-            <p class="form-hint">※ ひらがなを数文字入力すると候補が絞り込めます</p>
             <input
               id="muni"
               type="text"
@@ -417,6 +431,7 @@
               autocomplete="off"
             />
             <datalist id="muniList"></datalist>
+            <p id="muniHint" class="form-hint">※ ひらがなを数文字入力すると候補が絞り込めます</p>
           </div>
         </div>
 
@@ -472,6 +487,7 @@
       const elMsg = document.getElementById("msg");
       const elResult = document.getElementById("result");
       const elContactLink = document.getElementById("contactLink");
+      const elMuniHint = document.getElementById("muniHint");
 
       let suggestTimer = null;
 
@@ -823,6 +839,27 @@
         elMuni.value = "";
         renderSuggest([]);
         debounceSuggest();
+        // ヒントを再表示
+        if (elMuniHint) {
+          elMuniHint.classList.remove("hidden");
+        }
+      }
+
+      // 市区町村入力時
+      function onMuniInput() {
+        // 入力があればヒントを非表示
+        if (elMuni.value.length > 0) {
+          if (elMuniHint) {
+            elMuniHint.classList.add("hidden");
+          }
+        } else {
+          // 空になったらヒントを再表示
+          if (elMuniHint) {
+            elMuniHint.classList.remove("hidden");
+          }
+        }
+        // サジェスト処理
+        debounceSuggest();
       }
 
       // 送信処理
@@ -853,7 +890,7 @@
 
       document.addEventListener("DOMContentLoaded", () => {
         elPref.addEventListener("change", onPrefChange);
-        elMuni.addEventListener("input", debounceSuggest);
+        elMuni.addEventListener("input", onMuniInput);
         elBtn.addEventListener("click", onSubmit);
 
         loadAndParseCSV();
