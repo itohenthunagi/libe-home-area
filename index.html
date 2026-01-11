@@ -678,7 +678,7 @@
               <div class="loading-error-title">読み込みに時間がかかっています</div>
               <div class="loading-error-message">
                 データの取得に時間がかかっています。<br>
-                ネットワーク環境をご確認いただくか、<br>
+                もう少しお待ちいただくか、<br>
                 下のボタンで再読み込みをお試しください。
               </div>
               <button class="retry-btn" onclick="location.reload()">
@@ -700,14 +700,14 @@
           setBusy(true);
           setMsg("", "");
 
-          // 10秒後にタイムアウト警告を表示
+          // 20秒後にタイムアウト警告を表示
           loadingTimeout = setTimeout(() => {
             showLoadingError();
-          }, 10000);
+          }, 20000);
 
-          // fetchタイムアウト設定（30秒）
+          // fetchタイムアウト設定（60秒）
           const controller = new AbortController();
-          const fetchTimeout = setTimeout(() => controller.abort(), 30000);
+          const fetchTimeout = setTimeout(() => controller.abort(), 60000);
 
           const response = await fetch(CONFIG.CSV_URL, {
             signal: controller.signal
@@ -746,7 +746,7 @@
 
           let errorMessage = 'データの読み込みに失敗しました';
           if (error.name === 'AbortError') {
-            errorMessage = '読み込みがタイムアウトしました。ページを再読み込みしてください。';
+            errorMessage = '読み込みに時間がかかりすぎています。ページを再読み込みしてください。';
           } else if (!navigator.onLine) {
             errorMessage = 'インターネット接続を確認してください';
           }
