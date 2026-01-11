@@ -305,6 +305,65 @@
         100% { content: ''; }
       }
 
+      /* 凡例 */
+      .result-legend {
+        background: #f9f7f5;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+        border: 1px solid var(--color-border);
+      }
+
+      .result-legend-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--color-text-light);
+        margin-bottom: 8px;
+      }
+
+      .result-legend-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .result-legend-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .legend-badge {
+        flex-shrink: 0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 700;
+        min-width: 70px;
+        text-align: center;
+      }
+
+      .legend-badge.available {
+        background: var(--color-air);
+        color: var(--color-accent);
+      }
+
+      .legend-badge.consult {
+        background: #fef3e6;
+        color: #c4873b;
+      }
+
+      .legend-badge.unavailable {
+        background: #f5f3f1;
+        color: #999;
+      }
+
+      .legend-desc {
+        color: var(--color-text);
+        padding-top: 2px;
+      }
+
       /* 結果アイテム */
       .result-item {
         background: var(--color-base);
@@ -1124,6 +1183,25 @@
           <div class="result-header-sub">の対応状況</div>
         `;
         elResult.appendChild(header);
+
+        // 凡例を追加
+        const legend = document.createElement("div");
+        legend.className = "result-legend";
+        legend.innerHTML = `
+          <div class="result-legend-item">
+            <span class="legend-badge available">対応可能</span>
+            <span class="legend-desc">通常対応しているエリアです</span>
+          </div>
+          <div class="result-legend-item">
+            <span class="legend-badge consult">要相談</span>
+            <span class="legend-desc">内容や地域条件により社内にて対応可否を確認します</span>
+          </div>
+          <div class="result-legend-item">
+            <span class="legend-badge unavailable">対応エリア外</span>
+            <span class="legend-desc">現在は対応対象外のエリアです</span>
+          </div>
+        `;
+        elResult.appendChild(legend);
 
         items.forEach(it => {
           const card = document.createElement("div");
