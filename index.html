@@ -143,7 +143,8 @@
       .form-hint {
         font-size: 15px;
         color: var(--color-text-light);
-        margin-top: 6px;
+        margin-top: 0;
+        margin-bottom: 6px;
         line-height: 1.6;
       }
 
@@ -407,6 +408,7 @@
           </div>
           <div class="form-col">
             <label class="form-label" for="muni">市区町村</label>
+            <p class="form-hint">※ ひらがなを数文字入力すると候補が絞り込めます</p>
             <input
               id="muni"
               type="text"
@@ -415,7 +417,6 @@
               autocomplete="off"
             />
             <datalist id="muniList"></datalist>
-            <p class="form-hint">※ ひらがなを数文字入力すると候補が絞り込めます</p>
           </div>
         </div>
 
