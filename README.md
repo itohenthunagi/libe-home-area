@@ -13,7 +13,7 @@ GoogleスプレッドシートからCSVデータを読み込み、都道府県�
 ## デモ
 
 **GitHub Pages URL:**
-https://itohenthunagi.github.io/libekoumu_test/
+https://itohenthunagi.github.io/libe-home-area/
 
 ## 技術スタック
 
@@ -26,11 +26,8 @@ https://itohenthunagi.github.io/libekoumu_test/
 
 ```
 libe_koumu_area/
-├── new_index.html          # メインアプリケーション
-├── README.md               # このファイル
-├── design_document.md      # 詳細設計書
-├── basic_design.md         # 基本設計書（仕様書）
-└── 準備チェックリスト.md   # 実装前準備リスト
+├── index.html      # メインアプリケーション
+└── README.md       # このファイル
 ```
 
 ## セットアップ
@@ -58,7 +55,7 @@ libe_koumu_area/
 
 ### 2. HTMLファイルの設定
 
-`new_index.html` の `CONFIG` オブジェクトを編集：
+`index.html` の `CONFIG` オブジェクトを編集：
 
 ```javascript
 const CONFIG = {
@@ -72,15 +69,12 @@ const CONFIG = {
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/itohenthunagi/libekoumu_test.git
-cd libekoumu_test
+git clone https://github.com/itohenthunagi/libe-home-area.git
+cd libe-home-area
 
-# ファイルをコピー（new_index.html → index.html にリネーム）
-cp path/to/new_index.html index.html
-
-# コミット＆プッシュ
+# ファイルを編集後、コミット＆プッシュ
 git add index.html
-git commit -m "Add area check application"
+git commit -m "Update configuration"
 git push origin main
 ```
 
@@ -94,7 +88,7 @@ git push origin main
 
 数分後、以下のURLで公開されます：
 ```
-https://itohenthunagi.github.io/libekoumu_test/
+https://itohenthunagi.github.io/libe-home-area/
 ```
 
 ## 使い方
@@ -175,11 +169,3 @@ MIT License
 ## お問い合わせ
 
 ご不明な点は[お問い合わせフォーム](https://docs.google.com/forms/d/e/1FAIpQLSeqtoxMGXGZEHZ9x2QbNUdb7g--Fb-yoxjU5VKbuMT5TmJIvw/viewform)までご連絡ください。
-
-## 開発ドキュメント
-
-詳細な設計・実装仕様は以下を参照：
-
-- [basic_design.md](basic_design.md) - 基本設計書（要件定義）
-- [design_document.md](design_document.md) - 詳細設計書（実装仕様）
-- [準備チェックリスト.md](準備チェックリスト.md) - 実装前準備リスト
