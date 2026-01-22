@@ -17,3 +17,8 @@ desktop.ini
 
 # サンプル画像（必要に応じて）
 sample_image.png
+
+# 内部資料
+プッシュ不要/
+.cursorindexingignore
+.specstory/
