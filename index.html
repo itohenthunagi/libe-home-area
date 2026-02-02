@@ -408,6 +408,8 @@
         border-radius: 8px;
         font-size: 22px !important;
         font-weight: 700;
+        white-space: pre-line;
+        line-height: 1.4;
       }
 
       .status-badge.available {
@@ -788,20 +790,19 @@
         if (!value || value === "" || value === "—") return "unavailable";
         // 非対応エリア・対応エリア外を先に判定
         if (value.includes("非対応") || value.includes("対応エリア外")) return "unavailable";
-        // 要相談
+        // 要相談を含む場合（工事種類＋要相談の組み合わせも含む）
         if (value.includes("要相談")) return "consult";
-        // 一部対応・除く
-        if (value.includes("一部") || value.includes("除く")) return "partial";
-        // 対応可・○・対応 など
-        if (value === "○" || value.includes("対応可") || value.includes("対応")) return "available";
-        // その他（セル内容がある場合は表示するが、スタイルはpartialにする）
-        return "partial";
+        // 対応可・○
+        if (value === "○" || value === "対応可") return "available";
+        // その他（工事種類のリストなど）は対応可能として扱う
+        return "available";
       }
 
-      // 判定値の表示テキスト（セル内容をそのまま表示）
+      // 判定値の表示テキスト（カンマ区切りを改行に変換）
       function getStatusText(value) {
         if (!value || value === "") return "対応エリア外";
-        return value;
+        // カンマ区切りを改行に変換
+        return value.replace(/,/g, '\n');
       }
 
       // ローディング表示制御
