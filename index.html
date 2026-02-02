@@ -696,18 +696,16 @@
       const CONFIG = {
         CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTakKTc-ekIJM4mN34A0MP4WjpiaXgcie8bQYn5fMswI85X91fNSUDGOT59nGMnHQomYL4BVsxAtDf-/pub?gid=1502020184&single=true&output=csv',
         CONTACT_URL: 'https://docs.google.com/forms/d/e/1FAIpQLSeqtoxMGXGZEHZ9x2QbNUdb7g--Fb-yoxjU5VKbuMT5TmJIvw/viewform',
-        HEADER_PROVIDER_ROW: 2,
-        HEADER_CATEGORY_ROW: 3,
-        DATA_START_ROW: 4,
-        FIRST_JUDGE_COL: 4,
+        HEADER_ROW: 1,        // 1行目にカテゴリ（注文住宅・大規模・小規模・オフィス・店舗）
+        DATA_START_ROW: 2,    // 2行目からデータ開始
+        FIRST_JUDGE_COL: 4,   // D列から判定列
         SUGGEST_LIMIT: 30
       };
 
       // ==================== グローバルデータ ====================
       const appData = {
         table: [],              // 2次元配列（CSVデータ全体）
-        providers: [],          // プロバイダー種別（2行目 D列以降）
-        categories: [],         // カテゴリ（3行目 D列以降）
+        categories: [],         // カテゴリ（1行目 D列以降：注文住宅・大規模・小規模・オフィス・店舗）
         rowsByPref: new Map(),  // 都道府県別インデックス
         isReady: false          // データ準備完了フラグ
       };
@@ -736,7 +734,8 @@
       // ==================== カテゴリー名の変換マップ ====================
       const categoryNameMap = {
         "大規模": "大規模リフォーム",
-        "小規模": "小規模リフォーム"
+        "小規模": "小規模リフォーム",
+        "オフィス・店舗": "オフィス・店舗"
       };
 
       // ==================== ユーティリティ関数 ====================
@@ -787,13 +786,19 @@
       // 判定値のスタイル判定
       function getStatusClass(value) {
         if (!value || value === "" || value === "—") return "unavailable";
+        // 非対応エリア・対応エリア外を先に判定
+        if (value.includes("非対応") || value.includes("対応エリア外")) return "unavailable";
+        // 要相談
         if (value.includes("要相談")) return "consult";
+        // 一部対応・除く
         if (value.includes("一部") || value.includes("除く")) return "partial";
-        if (value === "○" || value.includes("対応")) return "available";
-        return "unavailable";
+        // 対応可・○・対応 など
+        if (value === "○" || value.includes("対応可") || value.includes("対応")) return "available";
+        // その他（セル内容がある場合は表示するが、スタイルはpartialにする）
+        return "partial";
       }
 
-      // 判定値の表示テキスト
+      // 判定値の表示テキスト（セル内容をそのまま表示）
       function getStatusText(value) {
         if (!value || value === "") return "対応エリア外";
         return value;
@@ -865,13 +870,11 @@
 
         appData.table = parsed.data;
 
-        // ヘッダ読み取り（2行目・3行目）
-        const providerRow = appData.table[CONFIG.HEADER_PROVIDER_ROW - 1];
-        const categoryRow = appData.table[CONFIG.HEADER_CATEGORY_ROW - 1];
+        // ヘッダ読み取り（1行目からカテゴリを取得）
+        const headerRow = appData.table[CONFIG.HEADER_ROW - 1];
 
-        // D列以降を取得（index 3以降）
-        appData.providers = providerRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
-        appData.categories = categoryRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
+        // D列以降を取得（index 3以降：注文住宅・大規模・小規模・オフィス・店舗）
+        appData.categories = headerRow.slice(CONFIG.FIRST_JUDGE_COL - 1);
 
         // インデックス構築
         buildIndex();
@@ -1141,14 +1144,13 @@
 
         const items = [];
         for (let i = 0; i < values.length; i++) {
-          const provider = appData.providers[i];
           const category = appData.categories[i];
           const value = values[i];
 
-          if (!provider || !category) continue;
+          // カテゴリ名が空の場合はスキップ
+          if (!category || category.trim() === '') continue;
 
           items.push({
-            provider: provider.trim(),
             category: category.trim(),
             value: value ? value.trim() : ''
           });
@@ -1210,7 +1212,7 @@
           const serviceName = document.createElement("div");
           serviceName.className = "result-service";
           const formattedCategory = formatCategoryName(it.category ?? "");
-          serviceName.textContent = `${it.provider ?? ""} ― ${formattedCategory}`;
+          serviceName.textContent = formattedCategory;
           card.appendChild(serviceName);
 
           const statusRow = document.createElement("div");
